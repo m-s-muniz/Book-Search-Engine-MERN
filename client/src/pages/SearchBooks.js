@@ -8,15 +8,26 @@ import {
   Row
 } from 'react-bootstrap';
 
-import Auth from '../utils/auth';
-import { saveBook, searchGoogleBooks } from '../utils/API';
-import { saveBookIds, getSavedBookIds } from '../utils/localStorage';
+// importing graphQL enablers
+import { useMutation } from "@apollo/client";
+import Auth from "../utils/auth";
+import { SAVE_BOOK } from "../utils/mutations";
+// import google API fetch
+import { searchGoogleBooks } from "../utils/API";
+// import localstorage functions
+import { saveBookIds, getSavedBookIds } from "../utils/localStorage";
+
+
+
 
 const SearchBooks = () => {
   // create state for holding returned google api data
   const [searchedBooks, setSearchedBooks] = useState([]);
   // create state for holding our search field data
   const [searchInput, setSearchInput] = useState('');
+
+  const [saveBook] = useMutation(SAVE_BOOK);
+  // create state to hold saved bookId values
 
   // create state to hold saved bookId values
   const [savedBookIds, setSavedBookIds] = useState(getSavedBookIds());
@@ -36,12 +47,13 @@ const SearchBooks = () => {
     }
 
     try {
+      // gets books from google API
       const response = await searchGoogleBooks(searchInput);
 
       if (!response.ok) {
         throw new Error('something went wrong!');
       }
-
+      // gets the API response into an array and selects five fields to store
       const { items } = await response.json();
 
       const bookData = items.map((book) => ({
@@ -51,7 +63,7 @@ const SearchBooks = () => {
         description: book.volumeInfo.description,
         image: book.volumeInfo.imageLinks?.thumbnail || '',
       }));
-
+      // updating the state
       setSearchedBooks(bookData);
       setSearchInput('');
     } catch (err) {
@@ -61,22 +73,15 @@ const SearchBooks = () => {
 
   // create function to handle saving a book to our database
   const handleSaveBook = async (bookId) => {
+    // check if user is still logged in; if not redirect
+    if (!Auth.loggedIn()) {
+      window.location.replace('/');
+    }
     // find the book in `searchedBooks` state by the matching id
     const bookToSave = searchedBooks.find((book) => book.bookId === bookId);
 
-    // get token
-    const token = Auth.loggedIn() ? Auth.getToken() : null;
-
-    if (!token) {
-      return false;
-    }
-
     try {
-      const response = await saveBook(bookToSave, token);
-
-      if (!response.ok) {
-        throw new Error('something went wrong!');
-      }
+      const { data } = await saveBook({variables: bookToSave});
 
       // if book successfully saves to user's account, save book id to state
       setSavedBookIds([...savedBookIds, bookToSave.bookId]);
