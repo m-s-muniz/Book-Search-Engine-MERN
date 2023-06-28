@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Form, Button, Alert } from 'react-bootstrap';
 
-import { createUser } from '../utils/API';
+// importing graphQL enablers
+import { useMutation } from '@apollo/client';
+import { ADD_USER } from '../utils/mutations';
 import Auth from '../utils/auth';
 
 const SignupForm = () => {
@@ -12,11 +14,16 @@ const SignupForm = () => {
   // set state for alert
   const [showAlert, setShowAlert] = useState(false);
 
+  // set mutation **
+  const [signup] = useMutation(ADD_USER);
+
+
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     setUserFormData({ ...userFormData, [name]: value });
   };
 
+   // form submit function
   const handleFormSubmit = async (event) => {
     event.preventDefault();
 
@@ -27,21 +34,19 @@ const SignupForm = () => {
       event.stopPropagation();
     }
 
+
     try {
-      const response = await createUser(userFormData);
+      // uses graphQL to setup a user and obtain user token
+      const { data } = await signup({variables: {...userFormData}});
+      // saves token to local storage
+      Auth.login(data.addUser.token);
 
-      if (!response.ok) {
-        throw new Error('something went wrong!');
-      }
 
-      const { token, user } = await response.json();
-      console.log(user);
-      Auth.login(token);
     } catch (err) {
       console.error(err);
       setShowAlert(true);
     }
-
+    // clears form
     setUserFormData({
       username: '',
       email: '',
